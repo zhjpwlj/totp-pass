@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Vault | Password Manager with TOTP</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --gray: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        header h1 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-success {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .items-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .item-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .item-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 18px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .item-icon img {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+        }
+
+        .item-details {
+            flex: 1;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--dark);
+        }
+
+        .item-meta {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .item-code {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--primary);
+            min-width: 90px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .item-card:hover .item-actions {
+            opacity: 1;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 100%;
+            transition: width 1s linear, background-color 1s ease;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 40px 60px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray);
+            padding: 5px;
+            border-radius: 6px;
+        }
+
+        .close-btn:hover {
+            background: var(--light);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray);
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        .notification {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            background: white;
+            color: var(--dark);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            z-index: 1001;
+            border-left: 4px solid var(--primary);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left-color: var(--secondary);
+        }
+
+        .notification.error {
+            border-left-color: var(--danger);
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .json-data {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            background-color: #f8f9fa;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 200px;
+            resize: vertical;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .password-field {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--gray);
+            cursor: pointer;
+        }
+
+        .strength-meter {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .strength-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .totp-badge {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .toolbar {
+                flex-direction: column;
+            }
+            .toolbar .btn {
+                width: 100%;
+            }
+            .item-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .item-code {
+                margin-top: 12px;
+                margin-bottom: 8px;
+            }
+            .item-actions {
+                margin-left: 0;
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="animate__animated animate__fadeIn">
+            <h1>Secure Vault</h1>
+            <p>Password Manager with TOTP Integration</p>
+        </header>
+
+        <div class="card animate__animated animate__fadeInUp">
+            <div class="toolbar">
+                <button id="add-entry-btn" class="btn btn-primary">+ Add Entry</button>
+                <button id="export-btn" class="btn btn-success">Export Data</button>
+                <button id="import-btn" class="btn btn-secondary">Import Data</button>
+                <button id="generate-password-btn" class="btn btn-secondary">Generate Password</button>
+            </div>
+
+            <div id="entries-list" class="items-grid">
+                <div class="empty-state" id="empty-state">
+                    <h3>No entries yet</h3>
+                    <p>Add your first password entry to get started</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Entry Modal -->
+    <div id="add-entry-modal" class="modal hidden">
+        <div class="modal-content animate__animated animate__zoomIn">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Password Entry</h3>
+                <button class="close-btn" data-modal="add-entry-modal">&times;</button>
+            </div>
+            <form id="add-entry-form">
+                <div class="form-group">
+                    <label for="entry-service">Service/Website *</label>
+                    <input type="text" id="entry-service" placeholder="e.g., Google, Facebook" required>
+                </div>
+                <div class="form-group">
+                    <label for="entry-website">Website URL (Optional)</label>
+                    <input type="url" id="entry-website" placeholder="https://example.com">
+                </div>
+                <div class="form-group">
+                    <label for="entry-username">Username/Email *</label>
+                    <input type="text" id="entry-username" placeholder="Enter your username" required>
+                </div>
+                <div class="form-group">
+                    <label for="entry-password">Password *</label>
+                    <div class="password-field">
+                        <input type="password" id="entry-password" placeholder="Enter password" required>
+                        <button type="button" class="toggle-password" data-target="entry-password">👁️</button>
+                    </div>
+                    <div class="strength-meter">
+                        <div class="strength-fill" id="password-strength"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="entry-notes">Notes (Optional)</label>
+                    <textarea id="entry-notes" rows="3" placeholder="Add any additional notes..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enable-totp"> Enable TOTP (2FA)
+                    </label>
+                </div>
+                <div id="totp-fields" class="hidden">
+                    <div class="form-group">
+                        <label for="totp-secret">TOTP Secret Key</label>
+                        <input type="text" id="totp-secret" placeholder="Enter your TOTP secret key">
+                        <div style="font-size: 12px; color: var(--gray); margin-top: 5px;">Base32 encoded secret (like JBSWY3DPEHPK3PXP)</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="totp-digits">Code Length</label>
+                        <select id="totp-digits">
+                            <option value="6">6 digits</option>
+                            <option value="8">8 digits</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="totp-period">Time Period</label>
+                        <select id="totp-period">
+                            <option value="30">30 seconds</option>
+                            <option value="60">60 seconds</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+            <div class="form-actions">
+                <button class="btn btn-secondary" data-modal="add-entry-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-entry-btn">Save Entry</button>
+                <button class="btn btn-success" id="generate-password-modal-btn">Generate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal hidden">
+        <div class="modal-content animate__animated animate__zoomIn">
+            <div class="modal-header">
+                <h3 class="modal-title">Export Data</h3>
+                <button class="close-btn" data-modal="export-modal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Export Format</label>
+                <select id="export-format">
+                    <option value="json">JSON (Unencrypted)</option>
+                    <option value="encrypted">Encrypted JSON</option>
+                </select>
+            </div>
+            <div class="form-group" id="export-password-group" style="display: none;">
+                <label for="export-password">Encryption Password</label>
+                <input type="password" id="export-password" placeholder="Enter encryption password">
+            </div>
+            <div class="form-group">
+                <label>Export Data</label>
+                <textarea id="export-data" class="json-data" rows="10" readonly></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" data-modal="export-modal">Close</button>
+                <button class="btn btn-primary" id="copy-export-btn">Copy to Clipboard</button>
+                <button class="btn btn-success" id="download-export-btn">Download File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="modal hidden">
+        <div class="modal-content animate__animated animate__zoomIn">
+            <div class="modal-header">
+                <h3 class="modal-title">Import Data</h3>
+                <button class="close-btn" data-modal="import-modal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="import-format">Import Format</label>
+                <select id="import-format">
+                    <option value="json">JSON (Unencrypted)</option>
+                    <option value="encrypted">Encrypted JSON</option>
+                </select>
+            </div>
+            <div class="form-group" id="import-password-group" style="display: none;">
+                <label for="import-password">Decryption Password</label>
+                <input type="password" id="import-password" placeholder="Enter decryption password">
+            </div>
+            <div class="form-group">
+                <label for="import-data">Paste JSON Data *</label>
+                <textarea id="import-data" class="json-data" rows="10" placeholder="Paste your JSON data here..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" data-modal="import-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-import-btn">Import Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate Password Modal -->
+    <div id="generate-password-modal" class="modal hidden">
+        <div class="modal-content animate__animated animate__zoomIn">
+            <div class="modal-header">
+                <h3 class="modal-title">Generate Strong Password</h3>
+                <button class="close-btn" data-modal="generate-password-modal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="password-length">Password Length</label>
+                <input type="range" id="password-length" min="8" max="32" value="16">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>8</span>
+                    <span id="length-value">16</span>
+                    <span>32</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include-uppercase" checked> Include Uppercase Letters
+                </label>
+                <label>
+                    <input type="checkbox" id="include-lowercase" checked> Include Lowercase Letters
+                </label>
+                <label>
+                    <input type="checkbox" id="include-numbers" checked> Include Numbers
+                </label>
+                <label>
+                    <input type="checkbox" id="include-symbols" checked> Include Symbols
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Generated Password</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="generated-password" readonly style="flex: 1;">
+                    <button type="button" class="btn btn-secondary" id="copy-generated-password">Copy</button>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" data-modal="generate-password-modal">Close</button>
+                <button class="btn btn-primary" id="regenerate-password">Regenerate</button>
+                <button class="btn btn-success" id="use-password">Use This Password</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Application State
+        let entries = [];
+        const STORAGE_KEY = 'secureVault_entries';
+
+        // DOM Elements
+        const addEntryBtn = document.getElementById('add-entry-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const importBtn = document.getElementById('import-btn');
+        const generatePasswordBtn = document.getElementById('generate-password-btn');
+        const saveEntryBtn = document.getElementById('save-entry-btn');
+        const enableTOTPCheckbox = document.getElementById('enable-totp');
+        const totpFields = document.getElementById('totp-fields');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            setupEventListeners();
+            startTimers();
+        });
+
+        function setupEventListeners() {
+            // Main buttons
+            addEntryBtn.addEventListener('click', () => openModal('add-entry-modal'));
+            exportBtn.addEventListener('click', handleExportData);
+            importBtn.addEventListener('click', () => openModal('import-modal'));
+            generatePasswordBtn.addEventListener('click', () => openModal('generate-password-modal'));
+
+            // Entry form
+            saveEntryBtn.addEventListener('click', handleSaveEntry);
+            enableTOTPCheckbox.addEventListener('change', toggleTOTPFields);
+            document.getElementById('generate-password-modal-btn').addEventListener('click', () => openModal('generate-password-modal'));
+
+            // Password generation
+            document.getElementById('password-length').addEventListener('input', updatePasswordLength);
+            document.getElementById('regenerate-password').addEventListener('click', generateNewPassword);
+            document.getElementById('copy-generated-password').addEventListener('click', copyGeneratedPassword);
+            document.getElementById('use-password').addEventListener('click', useGeneratedPassword);
+
+            // Import/Export
+            document.getElementById('export-format').addEventListener('change', toggleExportPassword);
+            document.getElementById('import-format').addEventListener('change', toggleImportPassword);
+            document.getElementById('copy-export-btn').addEventListener('click', copyExportData);
+            document.getElementById('download-export-btn').addEventListener('click', downloadExportData);
+            document.getElementById('confirm-import-btn').addEventListener('click', handleImportData);
+
+            // Password visibility toggles
+            document.querySelectorAll('.toggle-password').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetId = e.target.getAttribute('data-target');
+                    const input = document.getElementById(targetId);
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        e.target.textContent = '👁️‍🗨️';
+                    } else {
+                        input.type = 'password';
+                        e.target.textContent = '👁️';
+                    }
+                });
+            });
+
+            // Password strength indicator
+            document.getElementById('entry-password').addEventListener('input', updatePasswordStrength);
+
+            // Close modals
+            document.querySelectorAll('.close-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const modalId = e.target.getAttribute('data-modal');
+                    closeModal(modalId);
+                });
+            });
+
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeModal(modal.id);
+                    }
+                });
+            });
+
+            document.querySelectorAll('[data-modal]').forEach(btn => {
+                if (btn.getAttribute('data-modal') !== 'true') {
+                    btn.addEventListener('click', (e) => {
+                        const modalId = e.target.getAttribute('data-modal');
+                        closeModal(modalId);
+                    });
+                }
+            });
+        }
+
+        // TOTP Implementation
+        function base32Decode(base32) {
+            const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            let bits = '';
+            let result = '';
+            
+            base32 = base32.replace(/=+$/, '').toUpperCase();
+            
+            for (let i = 0; i < base32.length; i++) {
+                const char = base32.charAt(i);
+                const val = base32Chars.indexOf(char);
+                if (val === -1) throw new Error('Invalid Base32 character: ' + char);
+                bits += val.toString(2).padStart(5, '0');
+            }
+            
+            for (let i = 0; i + 8 <= bits.length; i += 8) {
+                const byte = bits.substr(i, 8);
+                result += String.fromCharCode(parseInt(byte, 2));
+            }
+            
+            return result;
+        }
+
+        function generateTOTP(secret, digits = 6, period = 30) {
+            try {
+                const decodedSecret = base32Decode(secret);
+                const U = Math.floor(Date.now() / 1000);
+                const T0 = 0;
+                const X = period;
+                const T = Math.floor((U - T0) / X);
+                
+                const TBuffer = new ArrayBuffer(8);
+                const TView = new DataView(TBuffer);
+                TView.setUint32(4, T, false);
+                
+                const key = CryptoJS.enc.Latin1.parse(decodedSecret);
+                const TWordArray = CryptoJS.lib.WordArray.create(new Uint8Array(TBuffer));
+                
+                const h = CryptoJS.HmacSHA1(TWordArray, key);
+                const hHex = h.toString(CryptoJS.enc.Hex);
+                
+                const hBytes = [];
+                for (let i = 0; i < hHex.length; i += 2) {
+                    hBytes.push(parseInt(hHex.substr(i, 2), 16));
+                }
+                
+                const offset = hBytes[hBytes.length - 1] & 0x0f;
+                const binary = (
+                    ((hBytes[offset] & 0x7f) << 24) |
+                    ((hBytes[offset + 1] & 0xff) << 16) |
+                    ((hBytes[offset + 2] & 0xff) << 8) |
+                    (hBytes[offset + 3] & 0xff)
+                );
+                
+                const code = binary % Math.pow(10, digits);
+                return code.toString().padStart(digits, '0');
+            } catch (error) {
+                console.error('TOTP Generation Error:', error);
+                return 'ERROR';
+            }
+        }
+
+        // Password Management
+        function generateStrongPassword(length = 16) {
+            const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+            const numbers = '0123456789';
+            const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+            
+            let charset = '';
+            let password = '';
+            
+            if (document.getElementById('include-uppercase').checked) charset += uppercase;
+            if (document.getElementById('include-lowercase').checked) charset += lowercase;
+            if (document.getElementById('include-numbers').checked) charset += numbers;
+            if (document.getElementById('include-symbols').checked) charset += symbols;
+            
+            if (charset === '') charset = uppercase + lowercase + numbers + symbols;
+            
+            for (let i = 0; i < length; i++) {
+                password += charset.charAt(Math.floor(Math.random() * charset.length));
+            }
+            
+            return password;
+        }
+
+        function checkPasswordStrength(password) {
+            let score = 0;
+            if (password.length >= 8) score++;
+            if (password.length >= 12) score++;
+            if (/[a-z]/.test(password)) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/[0-9]/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+            
+            return score;
+        }
+
+        // Favicon Fetching
+        function getFaviconUrl(domain) {
+            const cleanDomain = domain.replace(/^https?:\/\//, '').split('/')[0];
+            return `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=32`;
+        }
+
+        // Data Management
+        function toggleTOTPFields() {
+            if (enableTOTPCheckbox.checked) {
+                totpFields.classList.remove('hidden');
+            } else {
+                totpFields.classList.add('hidden');
+            }
+        }
+
+        function handleSaveEntry() {
+            const service = document.getElementById('entry-service').value;
+            const website = document.getElementById('entry-website').value;
+            const username = document.getElementById('entry-username').value;
+            const password = document.getElementById('entry-password').value;
+            const notes = document.getElementById('entry-notes').value;
+            const enableTOTP = document.getElementById('enable-totp').checked;
+            const totpSecret = enableTOTP ? document.getElementById('totp-secret').value.trim() : '';
+            const totpDigits = enableTOTP ? parseInt(document.getElementById('totp-digits').value) : 6;
+            const totpPeriod = enableTOTP ? parseInt(document.getElementById('totp-period').value) : 30;
+            
+            if (!service || !username || !password) {
+                showNotification('Service, username, and password are required', 'error');
+                return;
+            }
+            
+            if (enableTOTP && !totpSecret) {
+                showNotification('TOTP secret is required when TOTP is enabled', 'error');
+                return;
+            }
+            
+            // Test TOTP if enabled
+            if (enableTOTP) {
+                try {
+                    const testCode = generateTOTP(totpSecret, totpDigits, totpPeriod);
+                    if (testCode === 'ERROR') {
+                        showNotification('Invalid TOTP secret key format', 'error');
+                        return;
+                    }
+                } catch (error) {
+                    showNotification('Invalid TOTP secret: ' + error.message, 'error');
+                    return;
+                }
+            }
+            
+            const newEntry = {
+                id: Date.now().toString(),
+                service: service,
+                website: website || '',
+                username: username,
+                password: password,
+                notes: notes || '',
+                faviconUrl: website ? getFaviconUrl(website) : '',
+                hasTOTP: enableTOTP,
+                totpSecret: enableTOTP ? totpSecret : '',
+                totpDigits: totpDigits,
+                totpPeriod: totpPeriod,
+                createdAt: new Date().toISOString()
+            };
+            
+            entries.push(newEntry);
+            saveEntries();
+            renderEntries();
+            closeModal('add-entry-modal');
+            
+            // Reset form
+            document.getElementById('entry-service').value = '';
+            document.getElementById('entry-website').value = '';
+            document.getElementById('entry-username').value = '';
+            document.getElementById('entry-password').value = '';
+            document.getElementById('entry-notes').value = '';
+            document.getElementById('enable-totp').checked = false;
+            document.getElementById('totp-secret').value = '';
+            totpFields.classList.add('hidden');
+            
+            showNotification('Entry saved successfully', 'success');
+        }
+
+        // Import/Export Functions
+        function handleExportData() {
+            if (entries.length === 0) {
+                showNotification('No entries to export', 'error');
+                return;
+            }
+            
+            const data = {
+                version: '1.0',
+                type: 'entries',
+                exportDate: new Date().toISOString(),
+                entryCount: entries.length,
+                entries: entries
+            };
+            
+            const exportFormat = document.getElementById('export-format').value;
+            let exportData;
+            
+            if (exportFormat === 'encrypted') {
+                const password = document.getElementById('export-password').value;
+                if (!password) {
+                    showNotification('Encryption password is required', 'error');
+                    return;
+                }
+                exportData = CryptoJS.AES.encrypt(JSON.stringify(data), password).toString();
+                data.encrypted = true;
+                data.data = exportData;
+            }
+            
+            const exportJson = JSON.stringify(data, null, 2);
+            document.getElementById('export-data').value = exportJson;
+            document.getElementById('export-modal').setAttribute('data-file-name', `vault-export-${new Date().toISOString().split('T')[0]}.json`);
+            openModal('export-modal');
+        }
+
+        function handleImportData() {
+            const importData = document.getElementById('import-data').value.trim();
+            const importFormat = document.getElementById('import-format').value;
+            
+            if (!importData) {
+                showNotification('Please paste JSON data', 'error');
+                return;
+            }
+            
+            try {
+                let parsedData;
+                
+                if (importFormat === 'encrypted') {
+                    const password = document.getElementById('import-password').value;
+                    if (!password) {
+                        showNotification('Decryption password is required', 'error');
+                        return;
+                    }
+                    const bytes = CryptoJS.AES.decrypt(importData, password);
+                    parsedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                } else {
+                    parsedData = JSON.parse(importData);
+                }
+                
+                if (!parsedData.entries || !Array.isArray(parsedData.entries)) {
+                    throw new Error('Invalid data format: missing entries array');
+                }
+                
+                const existingIds = new Set(entries.map(entry => entry.id));
+                const newEntries = parsedData.entries.filter(entry => !existingIds.has(entry.id));
+                
+                entries.push(...newEntries);
+                saveEntries();
+                renderEntries();
+                
+                showNotification(`Imported ${newEntries.length} entries`, 'success');
+                closeModal('import-modal');
+            } catch (error) {
+                showNotification('Import failed: ' + error.message, 'error');
+            }
+        }
+
+        // UI Functions
+        function renderEntries() {
+            const entriesList = document.getElementById('entries-list');
+            const emptyState = document.getElementById('empty-state');
+            
+            entriesList.innerHTML = '';
+            
+            if (entries.length === 0) {
+                entriesList.appendChild(emptyState);
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            
+            entries.forEach(entry => {
+                const entryElement = createEntryElement(entry);
+                entriesList.appendChild(entryElement);
+            });
+        }
+
+        function createEntryElement(entry) {
+            const entryItem = document.createElement('div');
+            entryItem.className = 'item-card animate__animated animate__fadeIn';
+            
+            let totpCode = '';
+            if (entry.hasTOTP && entry.totpSecret) {
+                totpCode = generateTOTP(entry.totpSecret, entry.totpDigits, entry.totpPeriod);
+            }
+            
+            entryItem.innerHTML = `
+                <div class="item-icon">
+                    ${entry.faviconUrl 
+                        ? `<img src="${entry.faviconUrl}" alt="${entry.service} icon" onerror="this.style.display='none'; this.parentNode.innerHTML='${entry.service.charAt(0).toUpperCase()}'">`
+                        : entry.service.charAt(0).toUpperCase()}
+                </div>
+                <div class="item-details">
+                    <div class="item-name">
+                        ${entry.service}
+                        ${entry.hasTOTP ? '<span class="totp-badge">2FA</span>' : ''}
+                    </div>
+                    <div class="item-meta">${entry.username}</div>
+                    <div class="item-meta">${'•'.repeat(8)}</div>
+                    ${entry.hasTOTP ? `
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-${entry.id}"></div>
+                    </div>
+                    ` : ''}
+                </div>
+                ${entry.hasTOTP ? `<div class="item-code" id="code-${entry.id}">${totpCode}</div>` : ''}
+                <div class="item-actions">
+                    <button class="copy-btn" data-entry="${entry.id}" data-copy="username" title="Copy username">👤</button>
+                    <button class="copy-btn" data-entry="${entry.id}" data-copy="password" title="Copy password">🔒</button>
+                    ${entry.hasTOTP ? `<button class="copy-btn" data-entry="${entry.id}" data-copy="totp" title="Copy TOTP code">⏱️</button>` : ''}
+                    <button class="btn btn-danger btn-sm delete-entry-btn" data-entry="${entry.id}">Delete</button>
+                </div>
+            `;
+            
+            // Set up event listeners
+            entryItem.querySelector('[data-copy="username"]').addEventListener('click', (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(entry.username)
+                    .then(() => showNotification('Username copied to clipboard', 'success'))
+                    .catch(() => showNotification('Failed to copy username', 'error'));
+            });
+            
+            entryItem.querySelector('[data-copy="password"]').addEventListener('click', (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(entry.password)
+                    .then(() => showNotification('Password copied to clipboard', 'success'))
+                    .catch(() => showNotification('Failed to copy password', 'error'));
+            });
+            
+            if (entry.hasTOTP) {
+                entryItem.querySelector('[data-copy="totp"]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const codeElement = document.getElementById(`code-${entry.id}`);
+                    navigator.clipboard.writeText(codeElement.textContent)
+                        .then(() => showNotification('TOTP code copied to clipboard', 'success'))
+                        .catch(() => showNotification('Failed to copy TOTP code', 'error'));
+                });
+            }
+            
+            entryItem.querySelector('.delete-entry-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm(`Are you sure you want to delete ${entry.service}?`)) {
+                    deleteEntry(entry.id);
+                }
+            });
+            
+            return entryItem;
+        }
+
+        function updateTOTPCode(entryId, secret, digits = 6, period = 30) {
+            try {
+                const code = generateTOTP(secret, digits, period);
+                const codeElement = document.getElementById(`code-${entryId}`);
+                if (codeElement) {
+                    codeElement.textContent = code;
+                }
+            } catch (error) {
+                console.error('Error generating TOTP code:', error);
+            }
+        }
+
+        function deleteEntry(entryId) {
+            entries = entries.filter(entry => entry.id !== entryId);
+            saveEntries();
+            renderEntries();
+            showNotification('Entry deleted', 'success');
+        }
+
+        function updatePasswordStrength() {
+            const password = document.getElementById('entry-password').value;
+            const strength = checkPasswordStrength(password);
+            const strengthBar = document.getElementById('password-strength');
+            
+            let color, width;
+            if (password.length === 0) {
+                width = '0%';
+                color = 'transparent';
+            } else if (strength <= 2) {
+                width = '33%';
+                color = 'var(--danger)';
+            } else if (strength <= 4) {
+                width = '66%';
+                color = 'var(--warning)';
+            } else {
+                width = '100%';
+                color = 'var(--secondary)';
+            }
+            
+            strengthBar.style.width = width;
+            strengthBar.style.backgroundColor = color;
+        }
+
+        function generateNewPassword() {
+            const length = parseInt(document.getElementById('password-length').value);
+            const password = generateStrongPassword(length);
+            document.getElementById('generated-password').value = password;
+        }
+
+        function copyGeneratedPassword() {
+            const password = document.getElementById('generated-password').value;
+            navigator.clipboard.writeText(password)
+                .then(() => showNotification('Password copied to clipboard', 'success'))
+                .catch(() => showNotification('Failed to copy password', 'error'));
+        }
+
+        function useGeneratedPassword() {
+            const password = document.getElementById('generated-password').value;
+            document.getElementById('entry-password').value = password;
+            updatePasswordStrength();
+            closeModal('generate-password-modal');
+        }
+
+        function updatePasswordLength() {
+            const length = document.getElementById('password-length').value;
+            document.getElementById('length-value').textContent = length;
+            generateNewPassword();
+        }
+
+        function copyExportData() {
+            const exportData = document.getElementById('export-data');
+            exportData.select();
+            navigator.clipboard.writeText(exportData.value)
+                .then(() => showNotification('Data copied to clipboard', 'success'))
+                .catch(() => showNotification('Failed to copy data', 'error'));
+        }
+
+        function downloadExportData() {
+            const exportData = document.getElementById('export-data').value;
+            const fileName = document.getElementById('export-modal').getAttribute('data-file-name');
+            const blob = new Blob([exportData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleExportPassword() {
+            const format = document.getElementById('export-format').value;
+            const passwordGroup = document.getElementById('export-password-group');
+            passwordGroup.style.display = format === 'encrypted' ? 'block' : 'none';
+        }
+
+        function toggleImportPassword() {
+            const format = document.getElementById('import-format').value;
+            const passwordGroup = document.getElementById('import-password-group');
+            passwordGroup.style.display = format === 'encrypted' ? 'block' : 'none';
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            if (modalId === 'import-modal') {
+                document.getElementById('import-data').value = '';
+                document.getElementById('import-password').value = '';
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            document.querySelectorAll('.notification').forEach(notification => {
+                notification.remove();
+            });
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Data Persistence
+        function saveEntries() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        }
+
+        function loadData() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    entries = JSON.parse(stored);
+                    renderEntries();
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function startTimers() {
+            // Update TOTP codes every second
+            setInterval(() => {
+                entries.forEach(entry => {
+                    if (entry.hasTOTP && entry.totpSecret) {
+                        updateTOTPCode(entry.id, entry.totpSecret, entry.totpDigits, entry.totpPeriod);
+                    }
+                });
+            }, 1000);
+            
+            // Update progress bars every 100ms
+            setInterval(() => {
+                const now = Math.floor(Date.now() / 1000);
+                entries.forEach(entry => {
+                    if (entry.hasTOTP) {
+                        const period = entry.totpPeriod || 30;
+                        const timeRemaining = period - (now % period);
+                        const percentage = (timeRemaining / period) * 100;
+                        const progressBar = document.getElementById(`progress-${entry.id}`);
+                        
+                        if (progressBar) {
+                            progressBar.style.width = `${percentage}%`;
+                            progressBar.style.backgroundColor = 
+                                percentage > 20 ? 'var(--primary)' : 
+                                percentage > 10 ? 'var(--warning)' : 'var(--danger)';
+                        }
+                    }
+                });
+            }, 100);
+        }
+
+        // Initialize password generator
+        generateNewPassword();
+    </script>
+</body>
+</html>
